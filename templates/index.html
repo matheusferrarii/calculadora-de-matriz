@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Calculadora de Matrizes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    .container {
+      background: #fff;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #333;
+    }
+    label, input, button {
+      font-size: 1rem;
+      margin: 5px;
+    }
+    .matrix-input {
+      width: 50px;
+      padding: 5px;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    table {
+      margin: 10px auto;
+      border-collapse: collapse;
+    }
+    td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+    }
+    button {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    #results {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Calculadora de Matrizes</h1>
+    <label for="coluna">Tamanho da Matriz Quadrada:</label>
+    <input type="number" id="coluna" min="1" value="3" />
+    <button id="gerarBtn">Gerar Matriz</button>
+    <div id="matrixContainer" style="margin-top: 20px;"></div>
+    <button id="calcularBtn" style="display:none;">Calcular</button>
+    <div id="results"></div>
+  </div>
+  <script>
+    const colunaInput = document.getElementById('coluna');
+    const gerarBtn = document.getElementById('gerarBtn');
+    const calcularBtn = document.getElementById('calcularBtn');
+    const matrixContainer = document.getElementById('matrixContainer');
+    const resultsDiv = document.getElementById('results');
+
+    gerarBtn.addEventListener('click', () => {
+      resultsDiv.innerHTML = "";
+      matrixContainer.innerHTML = "";
+      const n = parseInt(colunaInput.value);
+      if (isNaN(n) || n <= 0) {
+        alert("Digite uma dimensão válida (>=1).");
+        return;
+      }
+      const table = document.createElement('table');
+      for (let i = 0; i < n; i++) {
+        const row = document.createElement('tr');
+        for (let j = 0; j < n; j++) {
+          const cell = document.createElement('td');
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.value = '0';
+          input.className = 'matrix-input';
+          input.setAttribute('data-i', i);
+          input.setAttribute('data-j', j);
+          cell.appendChild(input);
+          row.appendChild(cell);
+        }
+        table.appendChild(row);
+      }
+      matrixContainer.appendChild(table);
+      calcularBtn.style.display = 'inline-block';
+    });
+
+    calcularBtn.addEventListener('click', async () => {
+      resultsDiv.innerHTML = "";
+      const n = parseInt(colunaInput.value);
+      const inputs = document.querySelectorAll('.matrix-input');
+      const matriz = Array.from({ length: n }, () => Array(n).fill(0));
+      inputs.forEach(input => {
+        const i = parseInt(input.getAttribute('data-i'));
+        const j = parseInt(input.getAttribute('data-j'));
+        matriz[i][j] = parseFloat(input.value) || 0;
+      });
+      try {
+        const resp = await fetch("/calcular", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coluna: n, matriz: matriz })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+          exibirResultados(data);
+        } else {
+          resultsDiv.innerHTML = `<p class="error">Erro: ${data.erro || 'desconhecido'}</p>`;
+        }
+      } catch (err) {
+        resultsDiv.innerHTML = `<p class="error">Erro de requisição: ${err.message}</p>`;
+      }
+    });
+
+    function exibirResultados(data) {
+      if (data.erro) {
+        resultsDiv.innerHTML = `<p class="error">${data.erro}</p>`;
+        return;
+      }
+      const { matriz_original, triangularizada, diagonal, determinante, inversa } = data;
+      let html = "<h2>Resultados</h2>";
+      html += "<h3>Matriz Original</h3>" + montarTabela(matriz_original);
+      html += "<h3>Matriz Triangularizada</h3>" + montarTabela(triangularizada);
+      html += `<h3>Diagonal Principal</h3><p>[ ${diagonal.join(", ")} ]</p>`;
+      html += `<h3>Determinante</h3><p>${determinante}</p>`;
+      html += "<h3>Matriz Inversa</h3>" + (typeof inversa === "string" ? `<p>${inversa}</p>` : montarTabela(inversa));
+      resultsDiv.innerHTML = html;
+    }
+
+    function montarTabela(m) {
+      if (!m || !m.length) return "<p>N/A</p>";
+      let tableHtml = "<table>";
+      for (let i = 0; i < m.length; i++) {
+        tableHtml += "<tr>";
+        for (let j = 0; j < m[i].length; j++) {
+          tableHtml += `<td>${m[i][j]}</td>`;
+        }
+        tableHtml += "</tr>";
+      }
+      tableHtml += "</table>";
+      return tableHtml;
+    }
+  </script>
+</body>
+</html>
